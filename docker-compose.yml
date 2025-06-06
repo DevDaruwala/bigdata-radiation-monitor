@@ -13,7 +13,7 @@ services:
     environment:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://172.17.0.1:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     depends_on:
@@ -26,6 +26,8 @@ services:
     command: jobmanager
     environment:
       JOB_MANAGER_RPC_ADDRESS: jobmanager
+    networks:
+      - flink-net
 
   taskmanager:
     image: flink:1.16-scala_2.12
@@ -34,3 +36,22 @@ services:
     command: taskmanager
     environment:
       JOB_MANAGER_RPC_ADDRESS: jobmanager
+    networks:
+      - flink-net
+
+  pyflink-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+    working_dir: /app
+    depends_on:
+      - kafka
+    networks:
+      - flink-net
+    command: ["python", "flink/dummy_job.py"]
+
+networks:
+  flink-net:
+    driver: bridge
