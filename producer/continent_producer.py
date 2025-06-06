@@ -15,6 +15,7 @@ def map_to_continent(lat, lon):
     elif -55 <= lat <= 12 and -80 <= lon <= -35:
         return "South America"
     elif 15 <= lat <= 70 and -170 <= lon <= -50:
+
         return "North America"
     elif -47 <= lat <= -10 and 110 <= lon <= 180:
         return "Oceania"
