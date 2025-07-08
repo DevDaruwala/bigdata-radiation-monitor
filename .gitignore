@@ -1,0 +1,2 @@
+echo "producer/Small_file.csv" >> .gitignore
+producer/Small_file.csv

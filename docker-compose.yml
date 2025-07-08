@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  zookeeper:
+    image: wurstmeister/zookeeper
+    ports:
+      - "2181:2181"
+    networks:
+      - flink-net   # ✅ ADDED
+
+  kafka:
+    image: wurstmeister/kafka
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    depends_on:
+      - zookeeper
+    networks:
+      - flink-net   # ✅ ADDED
+
+  producer:
+    build:
+      context: ./producer
+    container_name: kafka-producer-container
+    depends_on:
+      - kafka
+    networks:
+      - flink-net
+    volumes:
+      - ./producer:/app
+      - ./producer/Small_file.csv:/app/Small_file.csv
+    working_dir: /app
+    entrypoint: ["sh", "-c", "./wait-for-kafka.sh && python3 continent_producer.py"]
+
+
+  rolling-average-job:
+    build:
+      context: ./flink
+      # dockerfile: flink.Dockerfile
+    # image: my-flink-runtime:stable
+    container_name: rolling-average-job
+    depends_on:
+      - kafka
+    networks:
+      - flink-net
+    volumes:
+      - ./flink:/app
+    working_dir: /app
+    entrypoint: ["sh", "-c", "./wait-for-kafka.sh kafka:9092 && python3 src/rolling_avarage.py"]
+
+
+
+  cmp-alert-job:
+    build:
+      context: ./flink
+      # dockerfile: flink.Dockerfile
+    # image: my-flink-runtime:stable
+    container_name: cmp-alert-job
+    depends_on:
+      - kafka
+    networks:
+      - flink-net
+    volumes:
+      - ./flink:/app
+    working_dir: /app
+    entrypoint: ["sh", "-c", "./wait-for-kafka.sh kafka:9092 && python3 src/alert_job.py"]
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: frontend-ui
+    ports:
+      - "8501:8501"
+    networks:
+      - flink-net
+    depends_on:
+      - kafka
+    volumes:
+      - ./frontend:/app
+    working_dir: /app
+    command: ["streamlit", "run", "app.py"]
+
+networks:
+  flink-net:
+    driver: bridge
